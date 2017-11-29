@@ -10,10 +10,12 @@ namespace EaseChallenge
 {
     class Program
     {
+        static int lengthOfPath = 1;
+        static int dropOfPath = 0;
+
         [STAThread]
         static void Main()
         {
-            int[,] map = null;
             try
             {
                 OpenFileDialog ofd = new OpenFileDialog();
@@ -24,11 +26,14 @@ namespace EaseChallenge
                     try
                     {
                         int[] currentPoint = { 0, 0 };
-                        int lengthOfPath = 0;
-                        int dropOfPath = 0;
                         String calculatedPath = String.Empty;
-                        map = CreatePointsTableFromFile(ofd.FileName);
-
+                        var map = CreatePointsTableFromFile(ofd.FileName);
+                        int lengthOfMap = map.GetLength(0);
+                        for (int i = 0; i < lengthOfMap; i++)
+                        {
+                            int[] row = Enumerable.Range(0, map.GetUpperBound(1) + 1).Select(x => map[i, x]).ToArray();
+                            calculatedPath = CreatePath(map, Array.IndexOf(row, row.Max()), i);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -45,24 +50,54 @@ namespace EaseChallenge
 
         static string CreatePath(int[,] values, int selectedX, int selectedY)
         {
-            Dictionary<string, int> neighboors = new Dictionary<string, int>(); //Indexes; 0. north, 1. south, 2. east, 3. west
-            string path = string.Empty;
+            int selectedPoint = values[selectedY, selectedX];
+            int currentPoint = selectedPoint;
+            string jumpDirection = string.Empty;
+            Dictionary<string, int> neighboors = new Dictionary<string, int>();
             if (selectedX > 0)
-                neighboors.Add("west", values[selectedX - 1, selectedY]);
-            neighboors.Add("east", values[selectedX + 1, selectedY]);
+                neighboors.Add("west", values[selectedY , selectedX-1]);
+            neighboors.Add("east", values[selectedY, selectedX+1]);
             if (selectedY > 0)
-                neighboors.Add("north", values[selectedX, selectedY - 1]);
-            neighboors.Add("south", values[selectedX, selectedY + 1]);
-
-            for (int i = 0; i < neighboors.Count; i++)
+                neighboors.Add("north", values[selectedY-1, selectedX ]);
+            neighboors.Add("south", values[selectedY+1, selectedX]);
+            List<string> keysToRemove = new List<string>();
+            foreach (var point in neighboors)
             {
-                if (neighboors.ElementAt(i).Value >= values[selectedX, selectedY])
+                if (point.Value >= selectedPoint)
                 {
-                    neighboors.Remove(neighboors.ElementAt(i).Key);
+                    keysToRemove.Add(point.Key);
                 }
             }
+            foreach (var key in keysToRemove)
+            {
+                neighboors.Remove(key);
+            }
 
-            return null;
+            if(neighboors.Count > 0)
+                if (neighboors.Values.Max() < selectedPoint )
+                    jumpDirection = neighboors.FirstOrDefault(x => x.Value.Equals(neighboors.Values.Max()) && x.Value < currentPoint).Key;
+
+            switch (jumpDirection)
+            {
+                case "north":
+                    lengthOfPath++;
+                    neighboors.TryGetValue("north", out currentPoint);
+                    return selectedPoint.ToString() + "-" + CreatePath(values, selectedX, selectedY - 1);
+                case "south":
+                    lengthOfPath++;
+                    neighboors.TryGetValue("south", out currentPoint);
+                    return selectedPoint.ToString() + "-" + CreatePath(values, selectedX, selectedY + 1);
+                case "east":
+                    lengthOfPath++;
+                    neighboors.TryGetValue("east", out currentPoint);
+                    return selectedPoint.ToString() + "-" + CreatePath(values, selectedX + 1, selectedY);
+                case "west":
+                    lengthOfPath++;
+                    neighboors.TryGetValue("west", out currentPoint);
+                    return selectedPoint.ToString() + "-" + CreatePath(values, selectedX - 1, selectedY);
+                default:
+                    return selectedPoint.ToString();
+            }
         }
 
         static int[,] CreatePointsTableFromFile(string path)
@@ -77,7 +112,7 @@ namespace EaseChallenge
                     int y = 0;
                     foreach (var point in lines[i].Split(' '))
                     {
-                        values[i - 1, y] = Convert.ToInt32(point);
+                        values[i - 1,y] = Convert.ToInt32(point);
                         y++;
                     }
                 }
